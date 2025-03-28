@@ -93,24 +93,16 @@ pipeline {
         stage('Notify Success via AWS SNS') {
             steps {
                 withCredentials([aws(credentialsId: 'aws-credentials')]) {
-                    script {
-                        sh """
-                            aws sns publish --region ${AWS_REGION} --topic-arn ${SNS_TOPIC_ARN} --message 'Build & Deployment successful!'
-                        """
-                    }
+                    sh 'aws sns publish --region us-east-1 --topic-arn arn:aws:sns:us-east-1:982081069647:devops --message "Build & Deployment successful!"'
                 }
             }
         }
+        // ... (other stages) ...
     }
-
     post {
         failure {
             withCredentials([aws(credentialsId: 'aws-credentials')]) {
-                script {
-                    sh """
-                        aws sns publish --region ${AWS_REGION} --topic-arn ${SNS_TOPIC_ARN} --message 'Build & Deployment failed!'
-                    """
-                }
+                sh 'aws sns publish --region us-east-1 --topic-arn arn:aws:sns:us-east-1:982081069647:devops --message "Build & Deployment failed!"'
             }
         }
     }
