@@ -88,7 +88,43 @@ pipeline {
                     }
                 }
             }
+        }stage('Tag & Push Docker Image to Docker Hub') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'docker-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASSWORD')]) {
+                    sh '''
+                        docker tag clab-task-app:latest-${BUILD_ID} pradeep1803/clab-task-app:latest-${BUILD_ID}
+                        echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USER" --password-stdin
+                        docker push pradeep1803/clab-task-app:latest-${BUILD_ID}
+                    '''
+                }
+            }
         }
+        stage('Deploy on EC2') {
+            steps {
+                sshagent(['jenkins']) {
+                    sh '''
+                        ssh -o StrictHostKeyChecking=no ec2-user@54.236.203.239 \\
+                        docker pull pradeep1803/clab-task-app:latest-${BUILD_ID} && \\
+                        docker stop $(docker ps -q --filter ancestor=pradeep1803/clab-task-app) || true && \\
+                        docker rm $(docker ps -aq --filter ancestor=pradeep1803/clab-task-app) || true && \\
+                        docker run -d --name clab-container-${BUILD_ID} -p 3000:3000 \\
+                        --restart always \\
+                        -e MYSQL_DATABASE="mydata" \\
+                        -e MYSQL_USERNAME="root" \\
+                        -e MYSQL_ROOT_PASSWORD="NewPassword@123" \\
+                        -e MYSQL_HOST="54.236.203.239" \\
+                        -e MYSQL_LOCAL_PORT="3306" \\
+                        -e MYSQL_DOCKER_PORT="3306" \\
+                        -e NODE_ENV="production" \\
+                        pradeep1803/clab-task-app:latest-${BUILD_ID}
+                    '''
+                }
+            }
+        }
+        // ... (other stages) ...
+    }
+    // ... (post actions) ...
+}
 
         stage('Notify Success via AWS SNS') {
             steps {
