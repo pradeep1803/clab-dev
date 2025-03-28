@@ -23,5 +23,6 @@ ENV NODE_ENV=production
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 USER appuser
 
+
 # Command to start the application
 CMD ["npm", "start"]
