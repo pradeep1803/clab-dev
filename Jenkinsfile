@@ -134,7 +134,7 @@ pipeline {
             }
         }
         // ... (other stages) ...
-    }
+
     post {
         failure {
             withCredentials([aws(credentialsId: 'aws-credentials')]) {
