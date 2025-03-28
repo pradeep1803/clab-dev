@@ -61,34 +61,35 @@ pipeline {
         }
 
         stage('Deploy on EC2') {
-            steps {
-                sshagent(['ec2-ssh-key']) {
-                    script {
-                        sh """
-                            ssh -o StrictHostKeyChecking=no ec2-user@${EC2_INSTANCE} '
-                            docker pull ${DOCKER_HUB_USER}/${DOCKER_IMAGE}:${DOCKER_TAG} &&
-                            
-                            # Stop and remove old container if exists
-                            docker stop \$(docker ps -q --filter ancestor=${DOCKER_HUB_USER}/${DOCKER_IMAGE}) || true &&
-                            docker rm \$(docker ps -aq --filter ancestor=${DOCKER_HUB_USER}/${DOCKER_IMAGE}) || true &&
-                            
-                            # Run new container with MySQL credentials
-                            docker run -d --name ${CONTAINER_NAME} -p ${NODEJS_LOCAL_PORT}:${NODEJS_LOCAL_PORT} \
-                                --restart always \
-                                -e MYSQL_DATABASE="${MYSQL_DATABASE}" \
-                                -e MYSQL_USERNAME="${MYSQL_USERNAME}" \
-                                -e MYSQL_ROOT_PASSWORD="${MYSQL_ROOT_PASSWORD}" \
-                                -e MYSQL_HOST="${MYSQL_HOST}" \
-                                -e MYSQL_LOCAL_PORT="${MYSQL_LOCAL_PORT}" \
-                                -e MYSQL_DOCKER_PORT="${MYSQL_DOCKER_PORT}" \
-                                -e NODE_ENV="production" \
-                                ${DOCKER_HUB_USER}/${DOCKER_IMAGE}:${DOCKER_TAG}
-                            '
-                        """
-                    }
-                }
+    steps {
+        sshagent(['ec2-ssh-key']) {
+            script {
+                sh """
+                    set -e
+                    ssh -o StrictHostKeyChecking=no ec2-user@${EC2_INSTANCE} '
+                        docker pull ${DOCKER_HUB_USER}/${DOCKER_IMAGE}:${DOCKER_TAG} &&
+                        docker stop \$(docker ps -q --filter ancestor=${DOCKER_HUB_USER}/${DOCKER_IMAGE}) || true &&
+                        docker rm \$(docker ps -aq --filter ancestor=${DOCKER_HUB_USER}/${DOCKER_IMAGE}) || true &&
+                        docker run -d --name ${CONTAINER_NAME} -p ${NODEJS_LOCAL_PORT}:${NODEJS_LOCAL_PORT} \\
+                            --restart always \\
+                            -e MYSQL_DATABASE="${MYSQL_DATABASE}" \\
+                            -e MYSQL_USERNAME="${MYSQL_USERNAME}" \\
+                            -e MYSQL_ROOT_PASSWORD="${MYSQL_ROOT_PASSWORD}" \\
+                            -e MYSQL_HOST="${MYSQL_HOST}" \\
+                            -e MYSQL_LOCAL_PORT="${MYSQL_LOCAL_PORT}" \\
+                            -e MYSQL_DOCKER_PORT="${MYSQL_DOCKER_PORT}" \\
+                            -e NODE_ENV="production" \\
+                            ${DOCKER_HUB_USER}/${DOCKER_IMAGE}:${DOCKER_TAG}
+                        if [ \$? -ne 0 ]; then
+                            echo "Error deploying container"
+                            exit 1
+                        fi
+                    '
+                """
             }
         }
+    }
+}
 
         stage('Notify Success via AWS SNS') {
             steps {
